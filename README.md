@@ -119,5 +119,41 @@ The GUI runs natively and reproduces the original's 8-tab layout (Home, QCOM
 Unlock, QCOM Partitions, Kirin Unlock, Kirin Flash, MTK, Oeminfo, Debug) with the
 shared port/loader/log/progress panel. Kirin (libusb) and update.app/oeminfo
 flows are fully in-process; Qualcomm flows drive the native `emmcdl`/`fh_loader`
-binaries. Everything compiles and launches; the flashing paths mirror the Windows
-originals exactly but have not been exercised against real hardware here.
+binaries. Everything compiles and launches, and USB port auto-detection works —
+but see **Known issues** below: the Qualcomm (EDL) flashing path is currently
+blocked on Linux by an `emmcdl` limitation, independent of this port.
+
+## Known issues
+
+### Qualcomm EDL flashing hangs on Linux (`< waiting for device >`)
+
+On real hardware, the Qualcomm/EDL operations (Read GPT, flash, dump, erase via
+the `[QCOM]` tabs) upload the firehose loader and then **hang**, with `emmcdl`
+printing `< waiting for device >` to stderr.
+
+**Root cause — this is in `emmcdl`, not in this port:** `emmcdl`'s Linux USB
+backend (`usb_linux.c` / `usbport.cpp`) opens the raw USB device but **never
+detaches the kernel driver**. The `qcserial` kernel module claims the
+`05c6:9008` device (creating `/dev/ttyUSB0`); after the loader is uploaded over
+the serial port, `emmcdl` needs raw USB for the firehose transfer, can't claim
+the device because `qcserial` still holds it, and busy-loops forever waiting for
+it. This is why `emmcdl` works on Windows (Qualcomm's WinUSB/QDLoader driver) but
+not on Linux. It affects **both UFS and eMMC** devices.
+
+What this means: the QCOM tabs will detect the device and start, then time out
+after 90s. There is no fix on the C# side — it would require replacing the
+`emmcdl`/`fh_loader` backend with a libusb-based EDL tool such as
+[bkerler/edl](https://github.com/bkerler/edl), which detaches the kernel driver.
+That backend swap is **not implemented** (it would break the 1:1 mapping to the
+original's `emmcdl` command lines).
+
+### Other notes
+
+- **UFS storage:** the original tool only passed the UFS memory type to
+  `fh_loader`, never to `emmcdl`, so `emmcdl` always defaulted to eMMC (Read GPT
+  returned "EMMC GPT empty" on UFS devices). This port fixes that by passing
+  `-MemoryName ufs` to `emmcdl` when **UFS storage** is ticked — but the
+  `emmcdl` USB limitation above still applies.
+- **Kirin factory bootloader flash** is beta upstream ("can't flash big files
+  properly", per the original author) and inherits that limitation here.
+- Nothing here has completed a real hardware flash end-to-end.

@@ -94,6 +94,17 @@ namespace HuaweiUnlocker
                     LOG(2, "'" + command + "' not found. Install it (emmcdl / fh_loader — see packaging/) or set its path in the Debug tab.");
                     return false;
                 }
+                // emmcdl defaults to eMMC and the original tool only wired the UFS
+                // checkbox to fh_loader, so every emmcdl call (loader upload, GPT read,
+                // flash, dump) targeted eMMC. On a UFS device that fails storage-init
+                // ("EMMC GPT empty") and can stall the loader. Pass the memory type.
+                if (Host.Ufs
+                    && Path.GetFileName(command).StartsWith("emmcdl", StringComparison.OrdinalIgnoreCase)
+                    && !subcommand.Contains("-MemoryName"))
+                {
+                    subcommand += " -MemoryName ufs";
+                    if (debug) LOG(0, "[UFS] emmcdl -> -MemoryName ufs");
+                }
                 log = "SUCCESS";
                 if (debug) LOG(0, command + newline + subcommand);
                 Process p = CurProcess = new Process();

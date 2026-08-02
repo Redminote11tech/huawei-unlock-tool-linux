@@ -149,10 +149,21 @@ namespace HuaweiUnlocker.App
                     var text = http.GetStringAsync("https://werasik2aa.github.io/Huawei-Unlock-Tool/js/Data.js").GetAwaiter().GetResult();
                     var devices = new List<string>();
                     var hisi = new List<string>();
-                    foreach (var raw in text.Split('\n'))
+                    // Data.js holds MANY arrays (Devices, Tools, Loaders, GPTS, ...).
+                    // Like the original, parse ONLY the "Devices" array: enter at its
+                    // header and stop at the first "];" — otherwise loader/tool/GPT
+                    // entries leak into the device dropdown as garbage.
+                    bool inDevices = false;
+                    foreach (var raw in text.Replace("\r", "").Split('\n'))
                     {
-                        var line = raw;
-                        if (line.StartsWith("[") || string.IsNullOrWhiteSpace(line) || line.StartsWith("//") || line.StartsWith("#") || line.Contains("];")) continue;
+                        var line = raw.Trim();
+                        if (!inDevices)
+                        {
+                            if (line.StartsWith("const Devices") && line.Contains("[")) inDevices = true;
+                            continue;
+                        }
+                        if (line.Contains("];")) break;   // end of the Devices array
+                        if (line.Length == 0 || line.StartsWith("//") || line.StartsWith("#")) continue;
                         var parts = line.Replace("\t", "").Replace("\"", "").Replace(",", "").Split('\'');
                         if (parts.Length < 2) continue;
                         var name = parts[0].Split(' ')[0];

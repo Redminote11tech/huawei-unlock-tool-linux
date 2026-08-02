@@ -54,6 +54,8 @@ namespace HuaweiUnlocker
         {
             public string ComName;
             public string FullName;
+            public string Vid = "";
+            public string Pid = "";
         }
         public struct Partition
         {
@@ -85,6 +87,13 @@ namespace HuaweiUnlocker
             Host.SetBusy(true);
             try
             {
+                // Preflight: give a clear, actionable message instead of a raw
+                // "No such file or directory" when the external helper isn't installed.
+                if (!Tools.Exists(command))
+                {
+                    LOG(2, "'" + command + "' not found. Install it (emmcdl / fh_loader — see packaging/) or set its path in the Debug tab.");
+                    return false;
+                }
                 log = "SUCCESS";
                 if (debug) LOG(0, command + newline + subcommand);
                 Process p = CurProcess = new Process();
@@ -194,37 +203,61 @@ namespace HuaweiUnlocker
         // Windows and returned the COMx string. On Linux we enumerate /dev/serial/by-id
         // (whose symlink names carry the USB product string) plus raw /dev/ttyUSB*/ttyACM*,
         // and treat the device path as the "ComName".
-        private static IEnumerable<Port_D> EnumeratePorts()
+        private static List<Port_D> EnumeratePorts()
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var byId = "/dev/serial/by-id";
-            if (Directory.Exists(byId))
+            var result = new List<Port_D>();
+            var devs = new List<string>();
+            try
             {
-                foreach (var link in Directory.EnumerateFileSystemEntries(byId))
+                if (Directory.Exists("/dev"))
                 {
-                    string target;
-                    try { target = Path.GetFullPath(Path.Combine(byId, ReadLink(link))); }
-                    catch { target = link; }
-                    if (!seen.Add(target)) continue;
-                    yield return new Port_D
-                    {
-                        ComName = target,
-                        FullName = Path.GetFileName(link).Replace('_', ' ')
-                    };
+                    devs.AddRange(Directory.GetFiles("/dev", "ttyUSB*"));
+                    devs.AddRange(Directory.GetFiles("/dev", "ttyACM*"));
                 }
             }
-            foreach (var dev in SerialPort.GetPortNames())
+            catch { }
+            try { devs.AddRange(SerialPort.GetPortNames()); } catch { }
+
+            foreach (var dev in devs)
             {
-                if (seen.Add(dev))
-                    yield return new Port_D { ComName = dev, FullName = dev };
+                if (!seen.Add(dev)) continue;
+                var (vid, pid, friendly) = UdevInfo(dev);
+                string label = string.IsNullOrEmpty(friendly) ? dev : friendly + " (" + dev + ")";
+                if (!string.IsNullOrEmpty(vid)) label += " [" + vid + ":" + pid + "]";
+                result.Add(new Port_D { ComName = dev, FullName = label, Vid = vid, Pid = pid });
             }
+            return result;
         }
 
-        private static string ReadLink(string path)
+        // Query udev for a tty's USB VID/PID and a human name. Falls back to blanks
+        // if udevadm is unavailable, so callers still get the raw /dev path.
+        private static (string vid, string pid, string friendly) UdevInfo(string dev)
         {
-            // .NET 6+ exposes the symlink target directly.
-            var info = new FileInfo(path);
-            return info.LinkTarget ?? path;
+            try
+            {
+                var psi = new ProcessStartInfo("udevadm", "info -q property -n " + dev)
+                {
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var p = Process.Start(psi);
+                string outp = p.StandardOutput.ReadToEnd();
+                p.WaitForExit(2000);
+                string Get(string k)
+                {
+                    var m = Regex.Match(outp, "^" + k + "=(.*)$", RegexOptions.Multiline);
+                    return m.Success ? m.Groups[1].Value.Trim() : "";
+                }
+                string vendor = Get("ID_VENDOR_FROM_DATABASE");
+                if (string.IsNullOrEmpty(vendor)) vendor = Get("ID_VENDOR");
+                string model = Get("ID_MODEL_FROM_DATABASE");
+                if (string.IsNullOrEmpty(model)) model = Get("ID_MODEL");
+                return (Get("ID_VENDOR_ID").ToLower(), Get("ID_MODEL_ID").ToLower(),
+                        (vendor + " " + model).Trim());
+            }
+            catch { return ("", "", ""); }
         }
 
         // The two Qualcomm helpers disagree on the port argument format on Linux:
@@ -241,25 +274,41 @@ namespace HuaweiUnlocker
             return m.Success ? m.Groups[1].Value : comName;
         }
 
+        // `name` is the Windows product-string intent (e.g. "qdloader 9008",
+        // "huawei usb com"); `devicename` is a specific port the user picked, or
+        // "Auto"/empty for auto-detect. On Linux the product string differs, so we
+        // auto-detect by USB VID:PID instead (EDL 9008 = 05c6:9008, Huawei = 12d1),
+        // and resolve a manual pick against the real enumerated /dev path.
         public static Port_D GETPORT(string name, string devicename = "")
         {
-            Port_D req = new Port_D { ComName = "NaN", FullName = "NaN" };
-            if (String.IsNullOrEmpty(devicename) || devicename == "Auto")
+            List<Port_D> ports;
+            try { ports = EnumeratePorts(); }
+            catch (Exception) { LOG(2, "NoRights"); ports = new List<Port_D>(); }
+
+            // --- Manual selection: resolve to the real device the user chose ---
+            if (!string.IsNullOrEmpty(devicename) && devicename != "Auto")
             {
-                try
-                {
-                    foreach (var p in EnumeratePorts())
-                        if (p.FullName.ToLower().Contains(name.ToLower()))
-                            return p;
-                }
-                catch (Exception) { LOG(2, "NoRights"); }
+                var sel = ports.FirstOrDefault(p => p.FullName == devicename)
+                       ?? ports.FirstOrDefault(p => p.ComName == devicename)
+                       ?? ports.FirstOrDefault(p => p.FullName.Contains(devicename));
+                if (sel != null) return sel;
+                if (devicename.StartsWith("/dev/")) return new Port_D { ComName = devicename, FullName = devicename };
+                return new Port_D { ComName = "NaN", FullName = "NaN" };
             }
-            else if (!String.IsNullOrEmpty(devicename))
-            {
-                req.ComName = devicename.Split(' ').Last().Replace("(", "").Replace(")", "");
-                req.FullName = devicename;
-            }
-            return req;
+
+            // --- Auto-detect: map the intent to Linux USB IDs ---
+            var n = name.ToLower();
+            Func<Port_D, bool> byId;
+            if (n.Contains("9008") || n.Contains("qdloader") || n.Contains("qualcomm"))
+                byId = p => p.Vid == "05c6" && p.Pid == "9008";
+            else if (n.Contains("huawei") || n.Contains("usb com"))
+                byId = p => p.Vid == "12d1";
+            else
+                byId = p => p.FullName.ToLower().Contains(n);
+
+            var hit = ports.FirstOrDefault(byId)
+                   ?? ports.FirstOrDefault(p => p.FullName.ToLower().Contains(n));
+            return hit ?? new Port_D { ComName = "NaN", FullName = "NaN" };
         }
 
         public static List<Port_D> GETPORTLIST()

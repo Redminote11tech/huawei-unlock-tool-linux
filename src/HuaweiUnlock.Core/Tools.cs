@@ -20,6 +20,21 @@ namespace HuaweiUnlocker
         public static string FhLoader => Resolve("fh_loader");
         public static string MtkFlash => Resolve("mtkflash");
 
+        /// <summary>True if the resolved command exists (absolute path or on $PATH).</summary>
+        public static bool Exists(string cmd)
+        {
+            if (string.IsNullOrEmpty(cmd)) return false;
+            if (cmd.Contains('/')) return File.Exists(cmd);
+            var path = System.Environment.GetEnvironmentVariable("PATH") ?? "";
+            foreach (var dir in path.Split(':'))
+            {
+                if (string.IsNullOrEmpty(dir)) continue;
+                var full = Path.Combine(dir, cmd);
+                if (File.Exists(full)) return true;
+            }
+            return false;
+        }
+
         private static string Resolve(string name)
         {
             var overridePath = LangProc.Host?.GetSetting("tool." + name);

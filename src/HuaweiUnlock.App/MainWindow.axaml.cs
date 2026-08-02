@@ -132,11 +132,10 @@ namespace HuaweiUnlocker.App
         {
             var current = PortBox.SelectedItem as string;
             PortBox.Items.Clear();
-            PortBox.Items.Add("");
-            PortBox.Items.Add("Auto");
+            PortBox.Items.Add("Auto");   // auto-detect by USB VID:PID
             foreach (var p in GETPORTLIST())
                 PortBox.Items.Add(p.FullName);
-            if (current != null && PortBox.Items.Contains(current)) PortBox.SelectedItem = current;
+            PortBox.SelectedItem = (current != null && PortBox.Items.Contains(current)) ? current : "Auto";
         }
 
         private void LoadDeviceListFromWeb()

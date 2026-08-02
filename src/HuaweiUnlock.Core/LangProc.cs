@@ -101,9 +101,14 @@ namespace HuaweiUnlocker
                 p.StartInfo.CreateNoWindow = true;
                 p.StartInfo.UseShellExecute = false;
                 p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.RedirectStandardError = true;
                 p.StartInfo.FileName = command;
                 p.StartInfo.Arguments = subcommand;
                 p.Start();
+                // The tool used to swallow stderr, so emmcdl/fh_loader errors looked
+                // like a silent hang. Surface them in the log as they arrive.
+                p.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) LOG(2, "[err] " + e.Data); };
+                p.BeginErrorReadLine();
                 string outtext = "";
                 // Inactivity watchdog: the original blocked forever on ReadLine, so a
                 // stuck emmcdl/fh_loader (device not in EDL, port held, no loader...)

@@ -13,6 +13,10 @@
 # both the tty and the raw USB device (the latter covers any libusb-based path).
 ACTION=="add", SUBSYSTEM=="tty", SUBSYSTEMS=="usb", ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="9008", MODE="0660", GROUP="uucp", TAG+="uaccess"
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", MODE="0660", GROUP="uucp", TAG+="uaccess"
+# Keep ModemManager from probing/holding the EDL port (it enumerates as a
+# "Gobi Wireless Modem"). Most distros ship this via ModemManager's own rules;
+# bundled here so the package is self-sufficient on minimal installs.
+SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", ENV{ID_MM_DEVICE_IGNORE}="1"
 
 # --- Kirin / HiSilicon fastboot ---------------------------------------------
 # The tool's fastboot layer (LibUsbDotNet) claims the USB device node directly.

@@ -105,8 +105,22 @@ namespace HuaweiUnlocker
                 p.StartInfo.Arguments = subcommand;
                 p.Start();
                 string outtext = "";
-                while ((outtext = p.StandardOutput.ReadLine()) != null)
+                // Inactivity watchdog: the original blocked forever on ReadLine, so a
+                // stuck emmcdl/fh_loader (device not in EDL, port held, no loader...)
+                // froze the whole tool. Abort if no output arrives for this long.
+                const int InactivityMs = 90000;
+                while (true)
                 {
+                    var readTask = p.StandardOutput.ReadLineAsync();
+                    if (!readTask.Wait(InactivityMs))
+                    {
+                        LOG(2, "No response for " + (InactivityMs / 1000) + "s — aborting '" + Path.GetFileName(command) +
+                               "'. Check: device really in EDL (05c6:9008), ModemManager stopped, cable/port, and that a loader is selected.");
+                        try { p.Kill(true); } catch { }
+                        return false;
+                    }
+                    outtext = readTask.Result;
+                    if (outtext == null) break;
                     if (outtext.ToLower().Contains("partition name:"))
                     {
                         string[] partitionDATA = outtext.Split(' ');

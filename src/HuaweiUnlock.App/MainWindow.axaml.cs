@@ -459,6 +459,34 @@ namespace HuaweiUnlocker.App
             });
         }
 
+        // ---- Update.app (mirrors the original UnpBTN / FlashUpdAppBTN) ----
+
+        // Extract only: UpdateApp.Unpack(path, 1). No device needed.
+        private async void UpdateAppUnpack_Click(object s, RoutedEventArgs e)
+        {
+            var f = await PickOpen("Select update.app", ("Update.app", new[] { "*.app", "*.APP" }), ("All files", new[] { "*" }));
+            if (f == null) return;
+            Run(() =>
+            {
+                UpdateApp.unpacked = false;   // force a fresh extraction of this file
+                UpdateApp.Unpack(f, 1);
+            });
+        }
+
+        // Extract + flash each partition via EDL 9008: UpdateApp.Unpack(path, 2).
+        // The original checked the device first, so we do too.
+        private async void UpdateAppFlash_Click(object s, RoutedEventArgs e)
+        {
+            var f = await PickOpen("Select update.app", ("Update.app", new[] { "*.app", "*.APP" }), ("All files", new[] { "*" }));
+            if (f == null) return;
+            Run(() =>
+            {
+                if (!CheckDevice(LoaderArg, PortText)) return;
+                UpdateApp.unpacked = false;
+                UpdateApp.Unpack(f, 2);
+            });
+        }
+
         // ================= KIRIN =================
 
         private Task ConnectKirin()

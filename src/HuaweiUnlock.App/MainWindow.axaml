@@ -126,6 +126,10 @@
                 <Separator Margin="0,8"/>
                 <Button Classes="act" Content="Create rawprogram.xml from device" Click="CreateGptFromDevice_Click"/>
                 <Button Classes="act" Content="Create rawprogram.xml from gpt.bin" Click="CreateGptFromFile_Click"/>
+                <Separator Margin="0,8"/>
+                <TextBlock Classes="h" Text="Update.app (EDL 9008)"/>
+                <Button Classes="act" Content="Unpack update.app…" Click="UpdateAppUnpack_Click"/>
+                <Button Classes="act" Content="Flash update.app (EDL 9008)…" Click="UpdateAppFlash_Click"/>
               </StackPanel>
             </Border>
           </Grid>

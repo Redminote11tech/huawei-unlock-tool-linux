@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Huawei Unlock Tool
+GenericName=Huawei bootloader / firmware tool
+Comment=Bootloader unlock, FRP, EDL/Kirin flashing for Huawei devices
+Exec=huawei-unlock-tool
+Icon=huawei-unlock-tool
+Terminal=false
+Categories=Utility;Development;
+Keywords=huawei;bootloader;unlock;edl;kirin;flash;frp;

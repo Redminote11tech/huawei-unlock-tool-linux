@@ -1,0 +1,34 @@
+Huawei Unlock Tool — Linux port
+===============================
+
+This is a Linux port (Avalonia/.NET) of the "Huawei-Unlock-Tool" originally
+written for Windows (WinForms). It is a derivative work and is distributed under
+the GNU Affero General Public License v3.0 (see LICENSE), consistent with the
+licences of the works it is based on.
+
+Upstream / original works and copyright holders
+------------------------------------------------
+* Huawei-Unlock-Tool (original Windows application)
+      https://github.com/werasik2aa/Huawei-Unlock-Tool
+* Qualcomm unlocker portion
+      Copyright (C) 2018-2023 Moongamer (4PDA)
+* Kirin (HiSilicon) unlocker portion, derived from PotatoNV
+      https://github.com/mashed-potatoes/PotatoNV
+      Copyright (C) 2020 Andrey Smirnoff (mashed-potatoes)
+      Copyright (C) 2019 Penn Mackintosh (penn5)
+
+What this port does NOT redistribute
+------------------------------------
+The original Windows project bundled third-party proprietary binaries
+(Qualcomm emmcdl.exe / fh_loader.exe, the QMSL libraries, and Huawei partition
+images). None of those are included here. The Qualcomm flashing helpers are
+invoked as external programs resolved from $PATH (see the packaging/ PKGBUILDs
+for emmcdl and fh_loader), not shipped in this repository.
+
+Third-party libraries (via NuGet, not vendored here)
+----------------------------------------------------
+Avalonia (MIT), Newtonsoft.Json (MIT), BouncyCastle (MIT), DotNetZip (Ms-PL),
+Base62 (MIT), System.IO.Ports (MIT), LibUsbDotNet (LGPL-3.0).
+
+All product names, trademarks and registered trademarks are property of their
+respective owners. This project is not affiliated with Huawei or Qualcomm.

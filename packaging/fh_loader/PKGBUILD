@@ -1,0 +1,42 @@
+# Maintainer: you <IamJupiterILY@proton.me>
+# fh_loader - Qualcomm's Firehose loader host tool, compiled for Linux.
+# Identical binary name and command-line as the Windows fh_loader.exe, so the
+# unlock tool's flashing arguments are used unchanged (1:1 behaviour).
+
+pkgname=fh_loader
+pkgver=r1
+pkgrel=1
+pkgdesc="Qualcomm Firehose loader host tool (Linux build)"
+arch=('x86_64')
+url="https://github.com/LonelyFool/fh_loader"
+license=('custom')
+depends=('gcc-libs')
+makedepends=('git' 'gcc')
+provides=('fh_loader')
+source=("git+https://github.com/LonelyFool/fh_loader.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/fh_loader"
+    printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd "$srcdir/fh_loader"
+    # Upstream build recipe (README): a single gcc invocation over the two sources.
+    local dir
+    dir="$(dirname "$(find . -type f -name fh_loader.cpp | head -n1)")"
+    cd "$dir"
+    g++ -w -D_FILE_OFFSET_BITS=64 fh_loader.cpp fh_loader_sha.cpp -o fh_loader
+}
+
+package() {
+    cd "$srcdir/fh_loader"
+    install -Dm755 "$(find . -type f -name fh_loader -perm -u+x | head -n1)" \
+        "$pkgdir/usr/bin/fh_loader"
+    # Preserve upstream licence/readme if present.
+    for f in LICENSE LICENSE.md README README.md; do
+        [ -f "$f" ] && install -Dm644 "$f" "$pkgdir/usr/share/licenses/$pkgname/$f"
+    done
+    true
+}

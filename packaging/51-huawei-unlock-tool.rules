@@ -1,0 +1,25 @@
+# udev rules for Huawei Unlock Tool.
+#
+# Grants the active local desktop user access to the device modes the tool talks
+# to, via logind "uaccess" (an ACL for the currently-logged-in seat user). This
+# means NO group membership and NO runtime sudo are needed — you just plug the
+# device in. GROUP="uucp" is only a fallback for non-graphical (e.g. SSH/TTY)
+# sessions where uaccess does not apply.
+#
+# Installed to /usr/lib/udev/rules.d by the huawei-unlock-tool package.
+
+# --- Qualcomm EDL 9008 -------------------------------------------------------
+# emmcdl / fh_loader open the qcserial tty node (/dev/ttyUSBx); grant access to
+# both the tty and the raw USB device (the latter covers any libusb-based path).
+ACTION=="add", SUBSYSTEM=="tty", SUBSYSTEMS=="usb", ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="9008", MODE="0660", GROUP="uucp", TAG+="uaccess"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", MODE="0660", GROUP="uucp", TAG+="uaccess"
+
+# --- Kirin / HiSilicon fastboot ---------------------------------------------
+# The tool's fastboot layer (LibUsbDotNet) claims the USB device node directly.
+# Google fastboot id 18d1:d00d, as used by Huawei Kirin bootloaders.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="18d1", ATTR{idProduct}=="d00d", MODE="0660", GROUP="uucp", TAG+="uaccess"
+
+# --- Huawei native modes (VCOM / USB COM 1.0 / fastboot), vendor 12d1 --------
+# Product IDs vary by firmware, so match the vendor on both USB and tty nodes.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="12d1", MODE="0660", GROUP="uucp", TAG+="uaccess"
+ACTION=="add", SUBSYSTEM=="tty", SUBSYSTEMS=="usb", ATTRS{idVendor}=="12d1", MODE="0660", GROUP="uucp", TAG+="uaccess"

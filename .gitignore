@@ -1,0 +1,32 @@
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+
+# Publish / self-contained output
+publish/
+src/*/bin/
+src/*/obj/
+
+# makepkg artifacts
+packaging/src/
+packaging/pkg/
+packaging/*.pkg.tar.zst
+packaging/*.log
+packaging/*.tar.gz
+
+# Runtime working data created by the app
+Logs/
+UnlockFiles/
+Tools/
+qc_boot/
+config.json
+*.log
+
+# Editors / OS
+.vs/
+.idea/
+*.swp
+.DS_Store

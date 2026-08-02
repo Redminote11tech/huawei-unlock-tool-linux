@@ -1,0 +1,26 @@
+_reload_udev() {
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules 2>/dev/null || true
+        udevadm trigger --subsystem-match=usb --subsystem-match=tty 2>/dev/null || true
+    fi
+}
+
+post_install() {
+    _reload_udev
+    cat <<'EOF'
+==> huawei-unlock-tool installed.
+    udev rules for EDL (05c6:9008), Kirin fastboot (18d1:d00d) and Huawei
+    (12d1) were installed and reloaded. Access is granted to your active
+    desktop session via "uaccess" — no group or sudo needed.
+    If a device was already plugged in, unplug and replug it.
+    The QCOM tabs also need the emmcdl and fh_loader helpers on $PATH.
+EOF
+}
+
+post_upgrade() {
+    _reload_udev
+}
+
+post_remove() {
+    _reload_udev
+}

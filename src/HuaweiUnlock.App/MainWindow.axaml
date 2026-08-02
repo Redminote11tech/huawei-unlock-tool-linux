@@ -1,0 +1,254 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HuaweiUnlocker.App.MainWindow"
+        Width="1080" Height="720" MinWidth="900" MinHeight="600"
+        Title="Huawei Unlock Tool (Linux port)"
+        Icon="/Assets/app.ico"
+        Background="#1e1f24">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.h">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#e0a040"/>
+      <Setter Property="Margin" Value="0,6,0,2"/>
+    </Style>
+    <Style Selector="Button.act">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Padding" Value="10,7"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#2a2c33"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="12"/>
+      <Setter Property="Margin" Value="4"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="300,*" Margin="8">
+
+    <!-- ================= Left shared panel ================= -->
+    <Border Grid.Column="0" Classes="card">
+      <ScrollViewer>
+        <StackPanel Spacing="2">
+          <TextBlock Text="HUAWEI UNLOCK TOOL" FontWeight="Bold" FontSize="16" Foreground="#e0a040"/>
+          <TextBlock Name="VersionLbl" Foreground="#888" FontSize="11" Margin="0,0,0,6"/>
+
+          <TextBlock Classes="h" Text="Device / Port"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <ComboBox Name="PortBox" Grid.Column="0" HorizontalAlignment="Stretch"/>
+            <Button Grid.Column="1" Content="⟳" Margin="4,0,0,0" Click="RefreshPorts_Click" ToolTip.Tip="Rescan serial ports"/>
+          </Grid>
+
+          <TextBlock Classes="h" Text="Loader (.mbn/.elf/.hex)"/>
+          <CheckBox Name="AutoLdrChk" Content="Auto-pick loader" IsChecked="True" IsCheckedChanged="AutoLdr_Changed"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <ComboBox Name="LoaderBox" Grid.Column="0" HorizontalAlignment="Stretch" IsEnabled="False"/>
+            <Button Grid.Column="1" Content="…" Margin="4,0,0,0" Click="PickLoader_Click"/>
+          </Grid>
+          <CheckBox Name="UfsChk" Content="UFS storage (else eMMC)"/>
+
+          <TextBlock Classes="h" Text="Language / Debug"/>
+          <Grid ColumnDefinitions="*,Auto">
+            <ComboBox Name="LangBox" Grid.Column="0" HorizontalAlignment="Stretch"/>
+            <Button Grid.Column="1" Content="Apply" Margin="4,0,0,0" Click="ApplyLang_Click"/>
+          </Grid>
+          <CheckBox Name="DebugChk" Content="Debug logging" IsCheckedChanged="Debug_Changed"/>
+
+          <Separator Margin="0,8"/>
+          <Button Classes="act" Content="Identify connected device" Click="Identify_Click"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- ================= Right: tabs + log ================= -->
+    <Grid Grid.Column="1" RowDefinitions="*,Auto,200">
+
+      <TabControl Grid.Row="0" Name="Tabs">
+
+        <!-- Home -->
+        <TabItem Header="Home">
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Huawei Unlock Tool — Linux port" FontSize="20" FontWeight="Bold" Foreground="#e0a040"/>
+              <TextBlock TextWrapping="Wrap" Foreground="#ccc"
+                Text="Ported 1:1 from the original WinForms tool to Avalonia/.NET so it runs natively on Linux. Qualcomm (EDL) and Kirin (HiSilicon) flows are here, with the same emmcdl/fh_loader helpers (native Linux builds, identical arguments). No shipped feature was dropped — see the Debug tab's parity note."/>
+              <TextBlock TextWrapping="Wrap" Foreground="#888"
+                Text="Connect your device in the appropriate mode (EDL 9008 for Qualcomm, test-point/fastboot for Kirin), pick the port on the left, then use the tabs."/>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- QCOM Unlock -->
+        <TabItem Header="[QCOM] Unlock">
+          <Border Classes="card">
+            <StackPanel Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
+              <TextBlock Classes="h" Text="Select device model"/>
+              <ComboBox Name="DeviceBox" HorizontalAlignment="Stretch"/>
+              <Button Classes="act" Name="BoardU" Content="Download / prepare unlock files" Click="Unlock_Click"/>
+              <Button Classes="act" Content="Unlock bootloader" Click="Unlock_Click"/>
+              <Button Classes="act" Content="Unlock FRP" Click="UnlockFrp_Click"/>
+              <Separator Margin="0,8"/>
+              <Button Classes="act" Content="Erase all memory (DANGER)" Background="#5a2a2a" Click="EraseMemory_Click"/>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- QCOM Partitions / GPT -->
+        <TabItem Header="[QCOM] Partitions">
+          <Grid ColumnDefinitions="*,240" Margin="0">
+            <Border Grid.Column="0" Classes="card">
+              <DockPanel>
+                <Button DockPanel.Dock="Top" Name="RdGPT" Classes="act" Content="Read GPT (partition table)" Click="ReadGpt_Click"/>
+                <DataGrid Name="PartList" IsReadOnly="True" AutoGenerateColumns="False"
+                          x:CompileBindings="False"
+                          GridLinesVisibility="All" DoubleTapped="PartList_DoubleTapped">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name"   Binding="{Binding Name}"   Width="*"/>
+                    <DataGridTextColumn Header="Start"  Binding="{Binding Start}"  Width="Auto"/>
+                    <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="Auto"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="card">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="h" Text="Selected partition"/>
+                <TextBlock Name="SelPartLbl" Text="(double-click a row)" Foreground="#aaa" TextWrapping="Wrap"/>
+                <Button Classes="act" Content="Read → file" Click="PartRead_Click"/>
+                <Button Classes="act" Content="Write ← file" Click="PartWrite_Click"/>
+                <Button Classes="act" Content="Erase" Background="#5a2a2a" Click="PartErase_Click"/>
+                <Separator Margin="0,8"/>
+                <TextBlock Classes="h" Text="Flash / dump"/>
+                <CheckBox Name="RawChk" Content="Raw image (no XML)"/>
+                <Button Classes="act" Content="Flash firmware…" Click="Flash_Click"/>
+                <Button Classes="act" Content="Dump full storage…" Click="DumpAll_Click"/>
+                <Separator Margin="0,8"/>
+                <Button Classes="act" Content="Create rawprogram.xml from device" Click="CreateGptFromDevice_Click"/>
+                <Button Classes="act" Content="Create rawprogram.xml from gpt.bin" Click="CreateGptFromFile_Click"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <!-- KIRIN Unlock -->
+        <TabItem Header="[KIRIN] Unlock">
+          <Border Classes="card">
+            <StackPanel Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
+              <TextBlock Classes="h" Text="Kirin CPU / bootloader"/>
+              <ComboBox Name="HisiBox" HorizontalAlignment="Stretch"/>
+              <CheckBox Name="VcomChk" Content="Device is in VCOM (Huawei USB COM 1.0), not fastboot"/>
+              <CheckBox Name="RebootChk" Content="Reboot after unlock"/>
+              <TextBlock Classes="h" Text="Bootloader unlock key (16 chars)"/>
+              <TextBox Name="BlKeyBox" MaxLength="16"/>
+              <TextBlock Classes="h" Text="Result"/>
+              <TextBox Name="BlKeyResult" IsReadOnly="True"/>
+              <Button Classes="act" Content="Connect / read info" Click="KirinConnect_Click"/>
+              <Button Classes="act" Content="Write key / unlock bootloader" Click="KirinUnlock_Click"/>
+              <Button Classes="act" Content="Unlock FRP" Click="KirinFrp_Click"/>
+              <Button Classes="act" Content="Reboot" Click="KirinReboot_Click"/>
+              <TextBlock Name="HisiInfoLbl" Foreground="#aaa" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- KIRIN GPT / flash -->
+        <TabItem Header="[KIRIN] Flash">
+          <Grid ColumnDefinitions="*,220">
+            <Border Grid.Column="0" Classes="card">
+              <DockPanel>
+                <Button DockPanel.Dock="Top" Classes="act" Content="Select firmware (.app / .img)…" Click="KirinSelectFirmware_Click"/>
+                <DataGrid Name="KirinFiles" IsReadOnly="True" AutoGenerateColumns="False" x:CompileBindings="False" GridLinesVisibility="All">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name"   Binding="{Binding Name}"   Width="*"/>
+                    <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="Auto"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="card">
+              <StackPanel Spacing="4">
+                <Button Classes="act" Content="Flash all (fastboot)" Click="KirinFlash_Click"/>
+                <Button Classes="act" Content="Write partition ← file" Click="KirinWritePart_Click"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <!-- MTK -->
+        <TabItem Header="MTK">
+          <Border Classes="card">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="h" Text="MediaTek flashing"/>
+              <TextBlock TextWrapping="Wrap" Foreground="#ccc"
+                Text="This tab was a non-functional placeholder in the original Windows app — MTKFlash is not wired to any button upstream — and is kept as-is for 1:1 parity. If MTK support is ever wired up, the tool resolver already points 'mtkflash' at a Linux binary (e.g. mtkclient) via the Debug tab / config."/>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- Oeminfo -->
+        <TabItem Header="Oeminfo">
+          <Grid ColumnDefinitions="260,*">
+            <Border Grid.Column="0" Classes="card">
+              <DockPanel>
+                <Button DockPanel.Dock="Top" Classes="act" Content="Decompile from update.app…" Click="OemDecompile_Click"/>
+                <Button DockPanel.Dock="Bottom" Classes="act" Name="OemCompileBtn" IsEnabled="False" Content="Compile oeminfo.img" Click="OemCompile_Click"/>
+                <CheckBox DockPanel.Dock="Bottom" Name="TrimChk" Content="Trim FF padding"/>
+                <ListBox Name="OemList" SelectionChanged="OemList_SelectionChanged"/>
+              </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="card">
+              <TextBox Name="OemContent" IsReadOnly="True" AcceptsReturn="True" FontFamily="monospace"
+                       TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <!-- Debug -->
+        <TabItem Header="Debug">
+          <Border Classes="card">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="h" Text="Environment"/>
+              <TextBlock Name="EnvLbl" Foreground="#ccc" TextWrapping="Wrap"/>
+              <Separator Margin="0,8"/>
+              <TextBlock Classes="h" Text="External flashing tools (Linux paths)"/>
+              <TextBlock TextWrapping="Wrap" Foreground="#aaa"
+                Text="The Qualcomm flows shell out to emmcdl and fh_loader — exactly as on Windows. Both have native Linux builds with identical command-line arguments, so the flashing logic is byte-for-byte the same. Point these at your binaries, or leave the bare name to resolve via $PATH."/>
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" Margin="0,4">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="emmcdl" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="0" Grid.Column="1" Name="ToolEmmcdl" Margin="0,2"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="fh_loader" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="1" Grid.Column="1" Name="ToolFhLoader" Margin="0,2"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="mtkflash" VerticalAlignment="Center"/>
+                <TextBox   Grid.Row="2" Grid.Column="1" Name="ToolMtkFlash" Margin="0,2"/>
+              </Grid>
+              <Button Content="Save tool paths" HorizontalAlignment="Left" Click="SaveToolPaths_Click"/>
+              <TextBlock TextWrapping="Wrap" Foreground="#7a7" Margin="0,4"
+                Text="Linux builds: emmcdl → github.com/Zalexanninev15/emmcdl (or nijel8/emmcdl); fh_loader → github.com/LonelyFool/fh_loader (Qualcomm's own source, compilable for Linux). The PKGBUILD installs both as dependencies."/>
+              <Separator Margin="0,8"/>
+              <TextBlock Classes="h" Text="Parity note"/>
+              <TextBlock TextWrapping="Wrap" Foreground="#9a9"
+                Text="This port is 1:1 with the shipped Windows app. FirmwareUpdate.dll (Upgrade Mode) and the QMSL libraries were never called by the original — dead declarations, no wired feature — so nothing functional is lost. The MTK tab was a non-functional placeholder upstream and remains one here."/>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+      </TabControl>
+
+      <!-- Progress + actions -->
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4,6">
+        <ProgressBar Name="Prg" Grid.Column="0" Minimum="0" Maximum="100" Height="20" ShowProgressText="True"/>
+        <Button Grid.Column="1" Content="Clear log" Margin="6,0,0,0" Click="ClearLog_Click"/>
+        <Button Grid.Column="2" Content="Cancel" Margin="6,0,0,0" Click="Cancel_Click"/>
+      </Grid>
+
+      <!-- Log -->
+      <Border Grid.Row="2" Classes="card" Margin="4,0,4,4">
+        <TextBox Name="LogBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                 FontFamily="monospace" FontSize="12" VerticalContentAlignment="Top"
+                 Background="#15161a"/>
+      </Border>
+
+    </Grid>
+  </Grid>
+</Window>

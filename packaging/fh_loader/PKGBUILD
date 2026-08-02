@@ -24,10 +24,12 @@ pkgver() {
 build() {
     cd "$srcdir/fh_loader"
     # Upstream build recipe (README): a single gcc invocation over the two sources.
+    # Modern g++ rejects the source's `pointer == '\0'` comparisons as hard errors
+    # (they were warnings when it was written), so add -fpermissive to downgrade them.
     local dir
     dir="$(dirname "$(find . -type f -name fh_loader.cpp | head -n1)")"
     cd "$dir"
-    g++ -w -D_FILE_OFFSET_BITS=64 fh_loader.cpp fh_loader_sha.cpp -o fh_loader
+    g++ -w -fpermissive -D_FILE_OFFSET_BITS=64 fh_loader.cpp fh_loader_sha.cpp -o fh_loader
 }
 
 package() {

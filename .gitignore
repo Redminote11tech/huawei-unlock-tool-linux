@@ -10,12 +10,17 @@ publish/
 src/*/bin/
 src/*/obj/
 
-# makepkg artifacts
+# makepkg artifacts (app + companion emmcdl/fh_loader PKGBUILDs)
 packaging/src/
 packaging/pkg/
 packaging/*.pkg.tar.zst
 packaging/*.log
 packaging/*.tar.gz
+packaging/*/src/
+packaging/*/pkg/
+packaging/*/*.pkg.tar.zst
+packaging/emmcdl/emmcdl/
+packaging/fh_loader/fh_loader/
 
 # Runtime working data created by the app
 Logs/
